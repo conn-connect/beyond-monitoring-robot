@@ -50,19 +50,19 @@ class QRDetectionNode(Node):
             
             cv2.rectangle(color_binary, (x, y), (x + w, y + h), (0, 255, 0), 2)
             
-            text = f"QR: {barcode_data} (W: {w})"
+            text = f"{barcode_data[-5:]} (X: {x}, W: {w})"
             cv2.putText(color_binary, text, (x, y + h + 20),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
             
             qr_info = QRInfo()
             qr_info.data = barcode_data
             qr_info.width = w
-            qr_info.x = x
-            qr_info.y = y
+            qr_info.x = int(x + w / 2)
+            qr_info.y = int(y + h / 2)
             self.qr_publisher.publish(qr_info)
             
             position = "right" if x + w > width - 30 else "center"
-            self.get_logger().info(f'QR Code detected: {barcode_data}, Width: {w}, Position: {position}')
+            self.get_logger().info(f'QR Code detected: {barcode_data}, Width: {w}, X: {x}')
         
         img_msg = self.bridge.cv2_to_imgmsg(color_binary, encoding="bgr8")
         self.image_publisher.publish(img_msg)

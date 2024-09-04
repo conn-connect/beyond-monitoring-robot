@@ -36,6 +36,15 @@ class RobotControlNode(Node):
 
         self.timer = self.create_timer(0.1, self.control_loop)
 
+        self.current_side = 0
+        self.current_target = 0
+        self.max_sides = len(self.target_qrs)
+        self.max_targets = len(self.target_qrs[0]) if self.target_qrs else 0
+        self.searching_rp = False  # RP를 찾고 있는지 여부를 나타내는 플래그
+
+        self.rotation_start_time = None
+        self.rotation_duration = rclpy.duration.Duration(seconds=4.2)  # π 초 동안 회전
+
     def lane_guidance_callback(self, msg):
         if self.state in ['FOLLOWING_LANE', 'SEARCHING_TURN_QR']:
             twist = Twist()
@@ -53,11 +62,18 @@ class RobotControlNode(Node):
         self.current_qr_x = msg.x
 
         if self.state == 'FOLLOWING_LANE':
-            if self.current_qr in self.target_qrs[self.current_side] or self.current_qr in self.turn_qrs:
-                qr_position = self.current_qr_x + self.current_qr_width / 2
-                if qr_position > self.image_width - 80:  # QR 코드 중심이 이미지의 오른쪽 80% 이상에 위치할 때
+            if self.searching_rp and self.current_qr in self.turn_qrs:
+                qr_position = self.current_qr_x
+                self.get_logger().info(f"RP QR 발견: {self.current_qr}, X: {self.current_qr_x}")
+                if self.current_qr_width > 96:  # QR 코드 중심이 이미지의 오른쪽 80% 이상에 위치할 때
+                    self.state = 'ROTATING'
+                    self.get_logger().info(f"회전 중: {self.current_qr}")
+            elif not self.searching_rp and self.current_qr in self.target_qrs[self.current_side]:
+                qr_position = self.current_qr_x
+                self.get_logger().info(f"PP QR 발견: {self.current_qr}, X: {self.current_qr_x}")
+                if qr_position > self.image_width - 100:  # QR 코드 중심이 이미지의 오른쪽 80% 이상에 위치할 때
                     self.state = 'APPROACHING_STOP'
-                    self.get_logger().info(f"Approaching stop point: {self.current_qr}")
+                    self.get_logger().info(f"정지 지점 접근 중: {self.current_qr}")
 
     def keyboard_input_callback(self, msg):
         if msg.data == 'start' and self.state == 'WAITING_TO_START':
@@ -67,14 +83,24 @@ class RobotControlNode(Node):
             if self.current_qr in self.turn_qrs:
                 self.state = 'ROTATING'
                 self.get_logger().info(f"회전 시작: {self.current_qr}")
+                self.searching_rp = False
             else:
-                self.state = 'FOLLOWING_LANE'
                 self.current_target += 1
-                self.get_logger().info(f"다음 지점으로 이동: {self.target_qrs[self.current_side][self.current_target]}")
+                if self.current_target >= self.max_targets:
+                    self.searching_rp = True
+                    self.get_logger().info("모든 PP 방문 완료. RP 탐색 시작.")
+                
+                if not self.searching_rp:
+                    self.state = 'FOLLOWING_LANE'
+                    self.get_logger().info(f"다음 지점으로 이동: {self.target_qrs[self.current_side][self.current_target]}")
+                else:
+                    self.state = 'FOLLOWING_LANE'
+                    self.get_logger().info("RP 탐색 중")
         elif msg.data == 'stop':
             self.state = 'EMERGENCY_STOP'
             self.stop_robot()
             self.get_logger().info("긴급 정지 활성화")
+
 
     def control_loop(self):
         if self.state == 'APPROACHING_STOP':
@@ -98,15 +124,30 @@ class RobotControlNode(Node):
                 self.move_duration = None
                 self.get_logger().info(f"정지 지점에 도착: {self.current_qr}")
         elif self.state == 'ROTATING':
-            self.rotate_180()
-            self.current_side += 1
-            self.current_target = 0
-            if self.current_side >= len(self.target_qrs):
-                self.state = 'MISSION_COMPLETE'
-                self.get_logger().info("임무 완료")
+            if self.rotation_start_time is None:
+                self.rotation_start_time = self.get_clock().now()
+                self.get_logger().info("180도 회전 시작")
+                twist = Twist()
+                twist.angular.z = 3.14/2  # 회전 속도, 필요에 따라 조정
+                self.cmd_vel_publisher.publish(twist)
+            
+            current_time = self.get_clock().now()
+            if current_time - self.rotation_start_time < self.rotation_duration:
+                # 계속 회전
+                pass
             else:
-                self.state = 'FOLLOWING_LANE'
-                self.get_logger().info(f"회전 완료. 다음 지점으로 이동: {self.target_qrs[self.current_side][self.current_target]}")
+                # 회전 완료
+                self.stop_robot()
+                self.rotation_start_time = None
+                self.current_side += 1
+                self.current_target = 0
+                self.searching_rp = False
+                if self.current_side >= self.max_sides:
+                    self.state = 'MISSION_COMPLETE'
+                    self.get_logger().info("임무 완료")
+                else:
+                    self.state = 'FOLLOWING_LANE'
+                    self.get_logger().info(f"회전 완료. 다음 지점으로 이동: {self.target_qrs[self.current_side][self.current_target]}")
         elif self.state == 'FOLLOWING_LANE':
             # Ensure the robot keeps moving if there's no lane guidance
             twist = Twist()

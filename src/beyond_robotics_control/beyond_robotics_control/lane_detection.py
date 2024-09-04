@@ -57,14 +57,13 @@ class LaneDetectionNode(Node):
         self.lane_width = 320  # Estimated lane width in pixels
         
         self.target_position = None
-        self.Kp = 0.005
-        self.Ki = 0.0005
-        self.Kd = 0.01
-        self.integral_error = 0
-        self.last_error = 0
+        
+        # New control parameters
+        self.Kp = 0.005  # Proportional gain
+        self.deadband = 5  # Deadband in pixels
 
         # 목표 색상 설정
-        self.target_color = (60, 100, 100)  # (H, min_S, min_V)
+        self.target_color = (60, 80, 80)  # (H, min_S, min_V)
 
     def timer_callback(self):
         frames = self.pipeline.wait_for_frames()
@@ -130,7 +129,6 @@ class LaneDetectionNode(Node):
         
         return lanes, image, masked
 
-        
     def publish_lane_guidance(self, lanes, image):
         if not lanes:
             return
@@ -168,15 +166,11 @@ class LaneDetectionNode(Node):
         # Calculate error
         error = self.target_position - current_position
         
-        # Update integral and derivative terms
-        self.integral_error += error
-        derivative_error = error - self.last_error
-        self.last_error = error
-
-        # Calculate PID control
-        angular_z = (self.Kp * error + 
-                     self.Ki * self.integral_error + 
-                     self.Kd * derivative_error)
+        # Apply deadband and proportional control
+        if abs(error) > self.deadband:
+            angular_z = self.Kp * (error - np.sign(error) * self.deadband)
+        else:
+            angular_z = 0.0
         
         # Limit the maximum angular velocity
         angular_z = max(min(angular_z, 0.3), -0.3)
@@ -220,7 +214,6 @@ class LaneDetectionNode(Node):
         x2 = int((y2 - intercept) / slope)
         cv2.line(image, (x1, y1), (x2, y2), color, 2)
         
-     
     def __del__(self):
         self.pipeline.stop()
 

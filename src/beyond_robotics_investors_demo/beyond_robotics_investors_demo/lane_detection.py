@@ -50,7 +50,7 @@ class LaneDetectionNode(Node):
         self.Kp = 0.01
         self.deadband = 3
 
-        self.target_color = (102, 100, 100)
+        self.target_color = (102, 200, 150)
 
     def image_callback(self, msg):
         cv_image = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')

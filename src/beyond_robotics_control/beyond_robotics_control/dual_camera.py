@@ -27,14 +27,14 @@ class DualCameraNode(Node):
         # Configure front camera (D435)
         front_config = rs.config()
         front_config.enable_device('233522071373')  # Replace with actual serial number
-        front_config.enable_stream(rs.stream.color, 1280, 720, rs.format.bgr8, 15)
-        front_config.enable_stream(rs.stream.depth, 1280, 720, rs.format.z16, 15)
+        front_config.enable_stream(rs.stream.color, 1280, 720, rs.format.bgr8, 30)
+        front_config.enable_stream(rs.stream.depth, 1280, 720, rs.format.z16, 30)
 
         # Configure side camera (D405)
         side_config = rs.config()
         side_config.enable_device('218622277577')  # Replace with actual serial number
-        side_config.enable_stream(rs.stream.color, 640, 480, rs.format.bgr8, 15)
-        side_config.enable_stream(rs.stream.depth, 640, 480, rs.format.z16, 15)
+        side_config.enable_stream(rs.stream.color, 640, 480, rs.format.bgr8, 30)
+        side_config.enable_stream(rs.stream.depth, 640, 480, rs.format.z16, 30)
 
         # Start the pipelines
         self.front_profile = self.front_pipeline.start(front_config)

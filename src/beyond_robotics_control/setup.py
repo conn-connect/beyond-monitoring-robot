@@ -28,7 +28,8 @@ setup(
             'keyboard_input = beyond_robotics_control.keyboard_input:main',
             'aruco_detection = beyond_robotics_control.aruco_detection:main',
             'dual_camera = beyond_robotics_control.dual_camera:main',
-            'aruco_path_following = beyond_robotics_control.aruco_path_following:main'
+            'aruco_path_following = beyond_robotics_control.aruco_path_following:main',
+            'demo_robot_control = beyond_robotics_control.demo_robot_control:main',
         ],
     },
 )

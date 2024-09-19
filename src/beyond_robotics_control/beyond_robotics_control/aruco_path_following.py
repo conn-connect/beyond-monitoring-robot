@@ -5,18 +5,15 @@ from cv_bridge import CvBridge
 import cv2
 import numpy as np
 import pyrealsense2 as rs
-from std_msgs.msg import Float32
-from beyond_robotics_interfaces.msg import LaneGuidance
-from geometry_msgs.msg import Point
+from std_msgs.msg import Float32  # Add this import
 
 class ArUcoPathFollowingNode(Node):
     def __init__(self):
         super().__init__('aruco_path_following_node')
         self.bridge = CvBridge()
-                
+        
         # Publishers
         self.debug_image_pub = self.create_publisher(Image, 'debug_image', 10)
-        self.lane_guidance_pub = self.create_publisher(LaneGuidance, 'lane_guidance', 10)
         
         # Subscribers for front camera
         self.create_subscription(Image, 'camera/front/color/image_raw', self.front_image_callback, 10)
@@ -33,6 +30,7 @@ class ArUcoPathFollowingNode(Node):
         self.aruco_params = cv2.aruco.DetectorParameters()
         
         # Camera intrinsics
+<<<<<<< HEAD
         self.front_camera_matrix = None
         self.front_dist_coeffs = None
         self.front_rs_intrinsics = None
@@ -43,6 +41,11 @@ class ArUcoPathFollowingNode(Node):
         self.side_dist_coeffs = None
         self.side_rs_intrinsics = None
         self.side_depth_scale = 0.0001
+=======
+        self.camera_matrix = None
+        self.dist_coeffs = None
+        self.rs_intrinsics = None
+>>>>>>> 3476c19274e5a8000dc06294fed2541c695fb63e
         
         # Latest color and depth images
         self.front_color_image = None
@@ -53,6 +56,7 @@ class ArUcoPathFollowingNode(Node):
         self.side_depth_image = None
         
         # Path parameters
+<<<<<<< HEAD
         self.offset_distance = 0.65  # 65cm offset
         self.path_extension = 0.5  # 50cm extension on both ends
 
@@ -77,6 +81,10 @@ class ArUcoPathFollowingNode(Node):
 
         self.previous_angular_z = 0.0  # 이전의 angular_z 값을 저장하기 위한 변수
 
+=======
+        self.offset_distance = 0.0  # 70cm offset
+        
+>>>>>>> 3476c19274e5a8000dc06294fed2541c695fb63e
         # Target ArUco marker IDs
         self.target_ids = [0, 1]
         self.final_aruco_id = 2
@@ -84,13 +92,26 @@ class ArUcoPathFollowingNode(Node):
         # State variable
         self.state = 'INITIAL_ALIGNMENT'  # 'INITIAL_ALIGNMENT', 'BLUE_TAPE_FOLLOWING', 'FINAL_ARUCO_APPROACH'
 
+<<<<<<< HEAD
         # Blue tape detection parameters
         self.blue_lower = np.array([100, 50, 50])
         self.blue_upper = np.array([140, 255, 255])
+=======
+        # Add subscriber for depth scale
+        self.depth_scale = 0.001
+
+    def camera_info_callback(self, msg):
+        self.camera_matrix = np.array(msg.k).reshape(3, 3)
+        self.dist_coeffs = np.array(msg.d)
+>>>>>>> 3476c19274e5a8000dc06294fed2541c695fb63e
         
         # Target distance for blue tape following (33cm)
         self.target_distance = 0.33
 
+<<<<<<< HEAD
+=======
+        self.get_logger().info(f"Camera intrinsics updated: {self.rs_intrinsics}")
+>>>>>>> 3476c19274e5a8000dc06294fed2541c695fb63e
 
     # Front camera callbacks
     def front_camera_info_callback(self, msg):
@@ -159,6 +180,7 @@ class ArUcoPathFollowingNode(Node):
         if self.front_color_image is None or self.front_depth_image is None:
             return
 
+<<<<<<< HEAD
         debug_image = self.front_color_image.copy()
         angular_z = 0.0  # Default value when no guidance is available
 
@@ -467,6 +489,46 @@ class ArUcoPathFollowingNode(Node):
         msg.angular_z = float(angular_z)
         self.lane_guidance_pub.publish(msg)
 
+=======
+        gray = cv2.cvtColor(self.color_image, cv2.COLOR_BGR2GRAY)
+        corners, ids, _ = cv2.aruco.detectMarkers(gray, self.aruco_dict, parameters=self.aruco_params)
+        
+        debug_image = self.color_image.copy()
+
+        if ids is not None:
+            # Filter out markers that are not in target_ids
+            target_corners = []
+            target_ids = []
+            for corner, id in zip(corners, ids):
+                if id[0] in self.target_ids:
+                    target_corners.append(corner)
+                    target_ids.append(id[0])
+            
+            target_ids = np.array(target_ids)
+            
+            if len(target_corners) > 0:
+                cv2.aruco.drawDetectedMarkers(debug_image, target_corners, target_ids)
+
+            if len(target_corners) >= 1:
+                marker_positions = self.get_marker_positions(target_corners)
+                
+                if marker_positions and len(marker_positions) >= 1:
+                    path_start, path_end = self.calculate_path(marker_positions)
+                    if path_start is not None and path_end is not None:
+                        self.visualize_markers_and_path(debug_image, marker_positions, target_ids, path_start, path_end)
+                    else:
+                        self.get_logger().warn("Failed to calculate path")
+                else:
+                    self.get_logger().warn(f"Not enough valid marker positions: {len(marker_positions) if marker_positions else 0}")
+            else:
+                self.get_logger().warn(f"Not enough target markers detected: {len(target_corners)}")
+        else:
+            self.get_logger().warn("No ArUco markers detected")
+
+        self.publish_debug_image(debug_image)
+    # The rest of the methods remain unchanged
+    
+>>>>>>> 3476c19274e5a8000dc06294fed2541c695fb63e
     def get_marker_positions(self, corners):
         marker_positions = []
         blurred_depth = cv2.medianBlur(self.front_depth_image, 5)
@@ -496,6 +558,7 @@ class ArUcoPathFollowingNode(Node):
                 else:
                     depth_value = median_depth
 
+<<<<<<< HEAD
                 depth_meters = depth_value * self.front_depth_scale
 
                 if self.front_rs_intrinsics is not None:  # Add this check
@@ -511,6 +574,22 @@ class ArUcoPathFollowingNode(Node):
                         self.get_logger().error(f"Error in rs2_deproject_pixel_to_point: {e}")
                 else:
                     self.get_logger().warn("front_rs_intrinsics is not initialized")
+=======
+                depth_meters = depth_value * self.depth_scale
+
+                self.get_logger().info(f"Marker {i}: Raw depth: {depth_value}, Depth in meters: {depth_meters}")
+
+                try:
+                    marker_3d = rs.rs2_deproject_pixel_to_point(
+                        self.rs_intrinsics, 
+                        [float(marker_center[0]), float(marker_center[1])],
+                        depth_meters
+                    )
+                    self.get_logger().info(f"Marker {i}: 3D position: {marker_3d}")
+                    marker_positions.append(np.array(marker_3d))
+                except Exception as e:
+                    self.get_logger().error(f"Error in rs2_deproject_pixel_to_point: {e}")
+>>>>>>> 3476c19274e5a8000dc06294fed2541c695fb63e
             else:
                 self.get_logger().warn(f"Invalid depth for marker {i} at pixel ({marker_center[0]}, {marker_center[1]})")
 
@@ -520,29 +599,36 @@ class ArUcoPathFollowingNode(Node):
             self.get_logger().warn("No valid marker positions found")
             return []
 
+
     def calculate_path(self, marker_positions):
-        if len(marker_positions) == 2:
+        if len(marker_positions) == 0:
+            return None, None
+
+        if len(marker_positions) == 1:
+            marker = marker_positions[0]
+            default_direction = np.array([0, 0, 1])
+            path_direction = default_direction
+            path_start = marker
+            path_end = marker + default_direction
+        else:
             marker1, marker2 = marker_positions[:2]
-            path_direction = marker2 - marker1
-            path_direction[1] = 0  # Ensure y component is 0
-            path_direction = path_direction / np.linalg.norm(path_direction)
+            path_direction = (marker2 - marker1) / np.linalg.norm(marker2 - marker1)
             path_start = marker1
             path_end = marker2
 
-            offset_direction = np.array([-path_direction[2], 0, path_direction[0]])
-            
-            offset_start = path_start + offset_direction * self.offset_distance
-            offset_end = path_end + offset_direction * self.offset_distance
-
-            # Extend the path by 50cm on both ends
-            extended_offset_start = offset_start - path_direction * self.path_extension
-            extended_offset_end = offset_end + path_direction * self.path_extension
-
-            return path_start, path_end, extended_offset_start, extended_offset_end
+        offset_direction = np.array([-path_direction[2], 0, path_direction[0]])
         
-        return None, None, None, None
+        path_start += offset_direction * self.offset_distance
+        path_end += offset_direction * self.offset_distance
 
+        return path_start, path_end
+
+
+<<<<<<< HEAD
     def visualize_markers_and_path(self, image, marker_positions, marker_ids, path_start, path_end, offset_start, offset_end):
+=======
+    def visualize_markers_and_path(self, image, marker_positions, marker_ids, path_start, path_end):
+>>>>>>> 3476c19274e5a8000dc06294fed2541c695fb63e
         for i, (marker, marker_id) in enumerate(zip(marker_positions, marker_ids)):
             marker_2d = self.project_3d_to_2d(marker)
             cv2.circle(image, tuple(marker_2d.astype(int)), 5, (0, 0, 255), -1)
@@ -557,28 +643,27 @@ class ArUcoPathFollowingNode(Node):
                         cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
 
         if path_start is not None and path_end is not None:
-            # Draw the line between markers (no offset) in green
             start_2d = self.project_3d_to_2d(path_start)
             end_2d = self.project_3d_to_2d(path_end)
             cv2.line(image, tuple(start_2d.astype(int)), tuple(end_2d.astype(int)), (0, 255, 0), 2)
+            cv2.arrowedLine(image, tuple(start_2d.astype(int)), tuple(end_2d.astype(int)), (0, 255, 0), 2, tipLength=0.05)
             
-            # Draw the extended offset path in blue
-            offset_start_2d = self.project_3d_to_2d(offset_start)
-            offset_end_2d = self.project_3d_to_2d(offset_end)
-            cv2.line(image, tuple(offset_start_2d.astype(int)), tuple(offset_end_2d.astype(int)), (255, 0, 0), 2)
-            cv2.arrowedLine(image, tuple(offset_start_2d.astype(int)), tuple(offset_end_2d.astype(int)), (255, 0, 0), 2, tipLength=0.05)
-            
-            # Calculate line length of the extended offset path
-            line_length = np.linalg.norm(offset_end - offset_start)
+            # Calculate line length
+            line_length = np.linalg.norm(path_end - path_start)
             length_str = f"{line_length:.2f}m"
             
             # Calculate midpoint for text placement
-            mid_point = (offset_start_2d + offset_end_2d) / 2
+            mid_point = (start_2d + end_2d) / 2
             
             # Draw length text above the line
             cv2.putText(image, length_str, (int(mid_point[0]), int(mid_point[1]) - 10), 
+<<<<<<< HEAD
                         cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 2)
 
+=======
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+            
+>>>>>>> 3476c19274e5a8000dc06294fed2541c695fb63e
     def coords_to_string(self, coords):
         return f"X: {coords[0]:.2f}, Y: {coords[1]:.2f}, Z: {coords[2]:.2f}"
 

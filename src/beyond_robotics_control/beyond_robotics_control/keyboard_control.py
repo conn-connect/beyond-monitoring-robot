@@ -38,7 +38,11 @@ class KeyboardControlNode(Node):
 
         if self.movement_enabled:
             twist = Twist()
+<<<<<<< HEAD
             twist.linear.x = 0.25  # Forward velocity
+=======
+            twist.linear.x = 0.2  # Forward velocity
+>>>>>>> 3476c19274e5a8000dc06294fed2541c695fb63e
             twist.angular.z = self.current_angular_z
             self.cmd_vel_publisher.publish(twist)
 

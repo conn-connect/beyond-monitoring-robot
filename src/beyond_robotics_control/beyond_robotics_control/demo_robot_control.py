@@ -18,7 +18,8 @@ class DemoRobotControlNode(Node):
         self.cmd_vel_publisher = self.create_publisher(Twist, 'cmd_vel', 10)
         self.state_publisher = self.create_publisher(String, 'robot_state', 10)
         self.debug_image_pub = self.create_publisher(Image, 'debug_image', 10)
-        
+        self.picking_command_publisher = self.create_publisher(String, 'picking_command', 10)
+
         # Subscribers
         self.create_subscription(Image, 'camera/front/color/image_raw', self.front_image_callback, 10)
         self.create_subscription(Image, 'camera/front/depth/image_raw', self.front_depth_callback, 10)
@@ -28,6 +29,7 @@ class DemoRobotControlNode(Node):
         self.create_subscription(CameraInfo, 'camera/side/camera_info', self.side_camera_info_callback, 10)
         self.create_subscription(String, 'keyboard_input', self.keyboard_input_callback, 10)
         self.create_subscription(LaneGuidance, 'lane_guidance', self.lane_guidance_callback, 10)
+        self.create_subscription(String, 'picking_status', self.picking_status_callback, 10)
 
         # ArUco dictionary
         self.aruco_dict = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_4X4_250)
@@ -64,6 +66,21 @@ class DemoRobotControlNode(Node):
         self.current_angular_z = 0.0
 
         self.timer = self.create_timer(0.1, self.control_loop)
+    
+    def picking_status_callback(self, msg):
+        if msg.data == 'picking_started':
+            self.get_logger().info('Robot arm has started picking.')
+            # If needed, adjust autonomous platform behavior
+        elif msg.data == 'picking_completed':
+            self.get_logger().info('Robot arm has completed picking.')
+            # Proceed to the next waypoint or final destination
+            self.state = 'MOVING_TO_NEXT_POSITION'
+    
+    def send_picking_command(self, command):
+        msg = String()
+        msg.data = command
+        self.picking_command_publisher.publish(msg)
+        self.get_logger().info(f'Sent picking command: {command}')
 
     def front_camera_info_callback(self, msg):
         self.front_camera_matrix = np.array(msg.k).reshape(3, 3)
